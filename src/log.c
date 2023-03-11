@@ -24,7 +24,7 @@ ssize_t log_info(const char *format, ...)
 	len = vsnprintf(buf, INT_MAX, format, args);
 	va_end(args);
 	
-	fprintf(stderr, "%s%s%s\n", BLUE_COLOR, buf,END_COLOR);
+	fprintf(stdout, "%s%s%s\n", BLUE_COLOR, buf,END_COLOR);
 
 	return len;
 }
