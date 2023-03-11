@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
+#include "log.h"
 
 unsigned char RED_COLOR[] = "\033[22;31m";
 unsigned char BLUE_COLOR[] = "\033[22;34m";
