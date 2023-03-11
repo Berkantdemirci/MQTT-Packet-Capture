@@ -1,0 +1,1 @@
+gcc -o mqtt_listen src/* -Iinclude
