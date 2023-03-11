@@ -13,8 +13,6 @@ unsigned char RED_COLOR[] = "\033[22;31m";
 unsigned char BLUE_COLOR[] = "\033[22;34m";
 unsigned char END_COLOR[] = "\033[0m";
 
-//printf("\033[22;34mHello, world!\033[0m");
-
 ssize_t log_info(const char *format, ...)
 {
 	va_list args;
