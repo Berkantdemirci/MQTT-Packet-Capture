@@ -2,5 +2,5 @@
 
 AUTHORS 
 
-## Hüseyin Yüce
-## Berkant Demirci
+- Hüseyin Yüce
+- Berkant Demirci
