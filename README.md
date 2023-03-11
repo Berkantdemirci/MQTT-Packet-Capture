@@ -1,5 +1,7 @@
 # MQTT-Packet-Capture
 
+Just run the "compile.sh" bash script to compile. The binary named "mqtt_listen" must be created.
+
 AUTHORS 
 
 - Hüseyin Yüce
