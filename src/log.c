@@ -10,10 +10,6 @@
 #include <string.h>
 #include "log.h"
 
-unsigned char RED_COLOR[] = "\033[22;31m";
-unsigned char BLUE_COLOR[] = "\033[22;34m";
-unsigned char END_COLOR[] = "\033[0m";
-
 ssize_t log_info(const char *format, ...)
 {
 	va_list args;
@@ -25,7 +21,7 @@ ssize_t log_info(const char *format, ...)
 	len = vsnprintf(buf, INT_MAX, format, args);
 	va_end(args);
 	
-	fprintf(stdout, "%s%s%s\n", BLUE_COLOR, buf,END_COLOR);
+	fprintf(stdout, "%s[+] %s%s\n", BLUE_COLOR, buf,END_COLOR);
 
 	return len;
 }
@@ -40,7 +36,7 @@ ssize_t log_err(const char *format, ...)
 	len = vsnprintf(buf, INT_MAX, format, args);
 	va_end(args);
 
-	fprintf(stderr, "%s%s%s\n", RED_COLOR, buf,END_COLOR);
+	fprintf(stderr, "%s[-] %s%s\n", RED_COLOR,buf,END_COLOR);
 
 	return len;
 }
