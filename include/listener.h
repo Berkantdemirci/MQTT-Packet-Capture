@@ -9,6 +9,7 @@
 */
 struct handler_struct *listener_init();
 void stop_mqtt_capture(pcap_t *handle);
+void start_mqtt_capture(pcap_t *handle);
 
 #endif
 

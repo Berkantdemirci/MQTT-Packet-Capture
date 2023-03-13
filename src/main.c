@@ -8,7 +8,8 @@ int main(){
 
     struct handler_struct *handler;
     handler = listener_init();
-
+    handler->start(handler->handle);
+        
     handler->stop(handler->handle);
     return 0;
 }

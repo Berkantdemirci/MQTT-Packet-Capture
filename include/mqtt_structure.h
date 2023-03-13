@@ -10,6 +10,7 @@ struct handler_struct{
     unsigned char *device_name; 
     pcap_t *handle;
     void (*stop)(pcap_t *);
+    void (*start)(pcap_t *);
 
 }; 
 

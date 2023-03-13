@@ -8,12 +8,42 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <ctype.h>
 
 #include "listener.h"
 #include "log.h"
 #include "mqtt_structure.h"
 
 unsigned char errbuf[PCAP_ERRBUF_SIZE];
+
+static void hexdump(void *_data, size_t byte_count) {
+  log_info("hexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
+  for (unsigned long byte_offset = 0; byte_offset < byte_count; byte_offset += 16) {
+    unsigned char *bytes = ((unsigned char*)_data) + byte_offset;
+    unsigned long line_bytes = (byte_count - byte_offset > 16) ?
+	    16 : (byte_count - byte_offset);
+    char line[1000];
+    char *linep = line;
+    linep += sprintf(linep, "%08lx  ", byte_offset);
+    for (int i=0; i<16; i++) {
+      if (i >= line_bytes) {
+        linep += sprintf(linep, "   ");
+      } else {
+        linep += sprintf(linep, "%02hhx ", bytes[i]);
+      }
+    }
+    linep += sprintf(linep, " |");
+    for (int i=0; i<line_bytes; i++) {
+      if (isalnum(bytes[i]) || ispunct(bytes[i]) || bytes[i] == ' ') {
+        *(linep++) = bytes[i];
+      } else {
+        *(linep++) = '.';
+      }
+    }
+    linep += sprintf(linep, "|");
+    puts(line);
+  }
+}
 
 unsigned char *get_device_name(){
 
@@ -69,6 +99,23 @@ pcap_t *get_handle(unsigned char *dev){
 
 }
 
+void start_mqtt_capture(pcap_t *handle){
+
+    struct pcap_pkthdr packet_header;
+
+    const unsigned char *packet = pcap_next(handle, &packet_header);
+
+     if (packet == NULL) {
+        log_err("No packet found.\n");
+        exit(-1);
+    }
+
+    log_info("Packet capture length: %d", packet_header.caplen);
+    log_info("Packet total length %d", packet_header.len);
+    
+    hexdump((void *)packet,packet_header.caplen);
+}
+
 void stop_mqtt_capture(pcap_t *handle){
 
     struct pcap_stat stats;
@@ -82,7 +129,7 @@ void stop_mqtt_capture(pcap_t *handle){
     pcap_close(handle);
 
     log_info("### Handler Closed ###");
-
+    exit(0);
     /*
         closes handler if stop_mqtt_capture have been called 
         or process be interrupted
@@ -117,6 +164,7 @@ struct handler_struct *listener_init(){
     data->handle = get_handle(data->device_name);
     if(data->handle == NULL) goto free;
 
+    data->start = start_mqtt_capture;
     data->stop = stop_mqtt_capture;
 
     log_info("### Handler has been initialized succesfully ###");
