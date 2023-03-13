@@ -6,13 +6,10 @@
 
 struct handler_struct{
 
-    /*input data*/
-    int read_timeout;
-    
     /*output data*/
     unsigned char *device_name; 
-    unsigned char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
+    void (*stop)(pcap_t *);
 
 }; 
 

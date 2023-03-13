@@ -6,20 +6,21 @@
 #include <stdlib.h>
 #include <pcap.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "listener.h"
 #include "log.h"
 #include "mqtt_structure.h"
 
-pcap_t *handle = NULL;
 unsigned char errbuf[PCAP_ERRBUF_SIZE];
-// exp node gibi yap
 
 unsigned char *get_device_name(){
 
     unsigned char *dev = NULL;
 
     dev = pcap_lookupdev(errbuf);
+    // returns the network name where packets will be captured
 
     if (dev == NULL) goto lookup_error;
     
@@ -29,15 +30,18 @@ unsigned char *get_device_name(){
     lookup_error:
         log_err("FUNCTION : %s\tLINE %d\nCouldn't find default device : %s"
         ,__FUNCTION__,__LINE__,errbuf);
-        exit(-1);
+        return NULL;
     /*
         Gets device name to use 
     */
 }
 
-pcap_t *get_handle(unsigned char *dev,int read_timeout,unsigned char *errbuf){
+pcap_t *get_handle(unsigned char *dev){
 
-    handle = pcap_open_live(dev,BUFSIZ, PCAP_OPENFLAG_PROMISCUOUS, read_timeout, errbuf);
+    if(getuid() != 0) goto root_error;
+    // packet capturing works under root privileges
+
+    pcap_t *handle = pcap_open_live(dev,BUFSIZ, PCAP_OPENFLAG_PROMISCUOUS, 100, errbuf);
 
     /*
     handle = pcap_open_live("wlan0mon",     // iface (example : wlan0mon)
@@ -56,14 +60,44 @@ pcap_t *get_handle(unsigned char *dev,int read_timeout,unsigned char *errbuf){
     get_handle_error:
         log_err("FUNCTION : %s\tLINE %d\nCouldn't open device : %s"
         ,__FUNCTION__,__LINE__,errbuf);
-	    exit(-1);
+	    return NULL;
+
+    root_error:
+        log_err("FUNCTION : %s\tLINE %d\nYou have to be root%s"
+        ,__FUNCTION__,__LINE__,errbuf);
+	    return NULL;
 
 }
 
-void listener_init(struct handler_struct *handler){
+void stop_mqtt_capture(pcap_t *handle){
 
-    struct handler_struct *data = (struct handler_struct *)malloc(sizeof(struct handler_struct));
+    struct pcap_stat stats;
 
+    if (pcap_stats(handle, &stats) >= 0) {
+        //printf("\n%d packets captured\n", packets);
+        log_info("%d packets received", stats.ps_recv);
+        log_info("%d packets dropped", stats.ps_drop);
+    }
+
+    pcap_close(handle);
+
+    log_info("### Handler Closed ###");
+
+    /*
+        closes handler if stop_mqtt_capture have been called 
+        or process be interrupted
+    */
+
+}
+
+struct handler_struct *listener_init(){
+
+    log_info("### STARTED TO BUILD HANDLER ###");
+
+    struct handler_struct *data = NULL;
+
+    data = (struct handler_struct *)malloc(sizeof(struct handler_struct));
+    
     if (data == NULL) {
         log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
         ,__FUNCTION__,__LINE__);
@@ -71,16 +105,22 @@ void listener_init(struct handler_struct *handler){
     }
 
     data->device_name = get_device_name();
+    if(data->device_name == NULL) goto free;
 
     // checks whether device is in monitor mode or not
-    if(strcmp((char *)(strrchr(data->device_name, '\0')) -3, "mon")){
-        
+    if(strcmp((strrchr(data->device_name, '\0')) -3, "mon")){
         log_err("FUNCTION : %s\tLINE %d\nDevice is not promiscuous"
         ,__FUNCTION__,__LINE__);
         goto free;
     }
 
-    return;
+    data->handle = get_handle(data->device_name);
+    if(data->handle == NULL) goto free;
+
+    data->stop = stop_mqtt_capture;
+
+    log_info("### Handler has been initialized succesfully ###");
+    return data;
 
     free:
         free(data);

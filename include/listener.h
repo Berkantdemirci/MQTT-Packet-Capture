@@ -7,9 +7,8 @@
 /*
     This header file includes listener functions signs
 */
-
-unsigned char *get_device_name();
-void listener_init(struct handler_struct *handler);
+struct handler_struct *listener_init();
+void stop_mqtt_capture(pcap_t *handle);
 
 #endif
 
