@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <ctype.h>
+#include <sys/types.h>
 
 #include "listener.h"
 #include "log.h"
@@ -17,7 +18,7 @@
 unsigned char errbuf[PCAP_ERRBUF_SIZE];
 
 static void hexdump(void *_data, size_t byte_count) {
-  log_info("hexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
+  log_info("\nhexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
   for (unsigned long byte_offset = 0; byte_offset < byte_count; byte_offset += 16) {
     unsigned char *bytes = ((unsigned char*)_data) + byte_offset;
     unsigned long line_bytes = (byte_count - byte_offset > 16) ?
@@ -43,6 +44,8 @@ static void hexdump(void *_data, size_t byte_count) {
     linep += sprintf(linep, "|");
     puts(line);
   }
+  log_info("###############\n");
+
 }
 
 unsigned char *get_device_name(){
@@ -99,26 +102,59 @@ pcap_t *get_handle(unsigned char *dev){
 
 }
 
-void start_mqtt_capture(pcap_t *handle){
+void send_packets_to_db(
+    u_char *args,
+    const struct pcap_pkthdr *header,
+    const u_char *packet
+){
+/*
+This func will send raw mqtt packets to database
+*/
+    hexdump((void *)packet,header->caplen);
 
-    struct pcap_pkthdr packet_header;
+}
 
-    const unsigned char *packet = pcap_next(handle, &packet_header);
+void *set_filter(pcap_t *handle){
 
-     if (packet == NULL) {
-        log_err("No packet found.\n");
-        exit(-1);
+    struct bpf_program filter;
+    unsigned char filter_exp[] = "tcp";
+    bpf_u_int32 tmp;
+
+    if (pcap_compile(handle, &filter, filter_exp, 0, tmp) == -1) {
+        log_err("Bad filter - %s", pcap_geterr(handle));
+        return NULL;
     }
 
-    log_info("Packet capture length: %d", packet_header.caplen);
-    log_info("Packet total length %d", packet_header.len);
-    
-    hexdump((void *)packet,packet_header.caplen);
+    if (pcap_setfilter(handle, &filter) == -1) {
+        log_err("Error setting filter - %s", pcap_geterr(handle));
+        return NULL;
+    }
+
+    log_info("### FILTER HAS BEEN SETTED ###");
+
+
+/*
+  just capture mqtt packets 
+*/
+}
+
+void start_mqtt_capture(pcap_t *handle){
+
+    log_info("### LISTENING HAS BEEN STARTED ###");
+
+    if ( NULL == set_filter(handle)) exit(-1);
+  
+    pcap_loop(handle,0,send_packets_to_db,NULL);
+
 }
 
 void stop_mqtt_capture(pcap_t *handle){
 
+    log_info("### STOP CAPTURE HAS BEEN STARTED ###");
+
     struct pcap_stat stats;
+    pcap_breakloop(handle);
+    // stop capture loop
 
     if (pcap_stats(handle, &stats) >= 0) {
         //printf("\n%d packets captured\n", packets);
@@ -128,7 +164,7 @@ void stop_mqtt_capture(pcap_t *handle){
 
     pcap_close(handle);
 
-    log_info("### Handler Closed ###");
+    log_info("### HANDLER CLOSED ###");
     exit(0);
     /*
         closes handler if stop_mqtt_capture have been called 
@@ -151,15 +187,19 @@ struct handler_struct *listener_init(){
         exit(-1);
     }
 
-    data->device_name = get_device_name();
-    if(data->device_name == NULL) goto free;
+    data->device_name = "any";
 
-    // checks whether device is in monitor mode or not
-    if(strcmp((strrchr(data->device_name, '\0')) -3, "mon")){
-        log_err("FUNCTION : %s\tLINE %d\nDevice is not promiscuous"
-        ,__FUNCTION__,__LINE__);
-        goto free;
-    }
+    // data->device_name = get_device_name();
+    // if(data->device_name == NULL) goto free;
+
+    // // checks whether device is in monitor mode or not
+    // if(strcmp((strrchr(data->device_name, '\0')) -3, "mon")){
+    //     log_err("FUNCTION : %s\tLINE %d\nDevice is not promiscuous"
+    //     ,__FUNCTION__,__LINE__);
+    //     goto free;
+    // }
+    
+    //  I realized that the mqtt protocol packets is only visible for device named "any" 
 
     data->handle = get_handle(data->device_name);
     if(data->handle == NULL) goto free;
@@ -167,7 +207,7 @@ struct handler_struct *listener_init(){
     data->start = start_mqtt_capture;
     data->stop = stop_mqtt_capture;
 
-    log_info("### Handler has been initialized succesfully ###");
+    log_info("### HANDLER HAS BEEN INITIALIZED SUCCESSFULLY ###");
     return data;
 
     free:

@@ -19,7 +19,7 @@ int main(){
     signal(SIGTERM, stop_process);
     signal(SIGQUIT, stop_process);
     signal(SIGKILL, stop_process);
-    /* call stop_mqtt_capture func after these signals*/
+    /* call stop_mqtt_capture func if process get these signals*/
 
     handler = listener_init();
 

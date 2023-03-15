@@ -1,1 +1,1 @@
-gcc src/* -lpcap -Iinclude -o mqtt_listen
+gcc src/* -lpcap -pthread -Iinclude -o mqtt_listen
