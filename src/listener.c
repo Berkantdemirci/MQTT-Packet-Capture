@@ -72,7 +72,7 @@ unsigned char *get_device_name(){
 pcap_t *get_handle(unsigned char *dev){
 
     if(getuid() != 0) goto root_error;
-    // packet capturing works under root privileges
+    // packet capturing works only under root privileges
 
     pcap_t *handle = pcap_open_live(dev,BUFSIZ, PCAP_OPENFLAG_PROMISCUOUS, 100, errbuf);
 
@@ -116,17 +116,19 @@ This func will send raw mqtt packets to database
 
 void *set_filter(pcap_t *handle){
 
-    struct bpf_program filter;
-    unsigned char filter_exp[] = "tcp";
+    struct bpf_program filter = {0};
+    unsigned char filter_exp[] = "tcp port 1883";
     bpf_u_int32 tmp;
 
     if (pcap_compile(handle, &filter, filter_exp, 0, tmp) == -1) {
-        log_err("Bad filter - %s", pcap_geterr(handle));
+        log_err("FUNCTION : %s\tLINE %d\nBad filter - %s"
+        ,__FUNCTION__,__LINE__,pcap_geterr(handle));
         return NULL;
     }
 
     if (pcap_setfilter(handle, &filter) == -1) {
-        log_err("Error setting filter - %s", pcap_geterr(handle));
+        log_err("FUNCTION : %s\tLINE %d\nError setting filter - %s"
+        ,__FUNCTION__,__LINE__,pcap_geterr(handle));
         return NULL;
     }
 
@@ -142,17 +144,23 @@ void start_mqtt_capture(pcap_t *handle){
 
     log_info("### LISTENING HAS BEEN STARTED ###");
 
-    if ( NULL == set_filter(handle)) exit(-1);
+    if ( NULL == set_filter(handle)) goto terminate;
   
-    pcap_loop(handle,0,send_packets_to_db,NULL);
+    if (pcap_loop(handle,0,send_packets_to_db,NULL) < 0) {
+        log_err("FUNCTION : %s\tLINE %d\npcap_loop failed: %s"
+        ,__FUNCTION__,__LINE__,pcap_geterr(handle));
+        goto terminate;
+    }
 
+    terminate:
+        exit(-1);
 }
 
 void stop_mqtt_capture(pcap_t *handle){
 
     log_info("### STOP CAPTURE HAS BEEN STARTED ###");
 
-    struct pcap_stat stats;
+    struct pcap_stat stats = {0};
     pcap_breakloop(handle);
     // stop capture loop
 

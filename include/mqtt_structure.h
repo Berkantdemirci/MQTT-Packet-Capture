@@ -5,6 +5,8 @@
 #include <pcap.h>
 #include <pthread.h>
 
+/**/
+
 struct handler_struct{
 
     /*output data*/
@@ -15,6 +17,10 @@ struct handler_struct{
     void (*start)(pcap_t *);
 
 }; 
+
+struct mqtt_struct {
+    
+};
 
 /*
 
