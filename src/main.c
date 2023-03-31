@@ -22,9 +22,10 @@ int main(){
     /* call stop_mqtt_capture func if process get these signals*/
 
     handler = listener_init();
-
+    log_info("Device name : %s",handler->device_name);
+    
     handler->start(handler->handle);
-        
+    
     handler->stop(handler->handle);
     return 0;
 }

@@ -10,6 +10,9 @@
 #include <sys/types.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 #include "listener.h"
 #include "log.h"
@@ -102,7 +105,168 @@ pcap_t *get_handle(unsigned char *dev){
 
 }
 
-void send_packets_to_db(
+void parse_mqtt(const unsigned char *payload, int payload_length) {
+    // MQTT Fixed header
+    unsigned char mqtt_message_type = (payload[0] & 0xF0) >> 4;
+
+    printf("MQTT Message Type: %u\n", mqtt_message_type);
+
+    int pos = 1; // Position in payload (skipping fixed header byte)
+    int multiplier = 1;
+    int remaining_length = 0;
+    unsigned char encoded_byte;
+
+    do {
+        encoded_byte = payload[pos++];
+        remaining_length += (encoded_byte & 0x7F) * multiplier;
+        multiplier *= 0x80;
+    } while ((encoded_byte & 0x80) != 0);
+
+    // Parsing variable header based on the MQTT message type
+    switch (mqtt_message_type) {
+        case 1: { // CONNECT
+            // Protocol Name
+            uint16_t protocol_name_length = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+            char *protocol_name = malloc(protocol_name_length + 1);
+            memcpy(protocol_name, payload + pos, protocol_name_length);
+            protocol_name[protocol_name_length] = '\0';
+            pos += protocol_name_length;
+
+            printf("Protocol Name: %s\n", protocol_name);
+
+            // Protocol Level
+            uint8_t protocol_level = payload[pos++];
+            printf("Protocol Level: %u\n", protocol_level);
+
+            // Connect Flags
+            uint8_t connect_flags = payload[pos++];
+            printf("Connect Flags: %02X\n", connect_flags);
+
+            // Keep Alive
+            uint16_t keep_alive = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+            printf("Keep Alive: %u\n", keep_alive);
+
+            // Client ID
+            uint16_t client_id_length = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+            char *client_id = malloc(client_id_length + 1);
+            memcpy(client_id, payload + pos, client_id_length);
+            client_id[client_id_length] = '\0';
+            pos += client_id_length;
+
+            printf("Client ID: %s\n", client_id);
+
+            free(protocol_name);
+            free(client_id);
+            break;
+        }
+        case 2: { // CONNACK
+            uint8_t session_present = payload[pos++] & 0x01;
+            uint8_t connack_code = payload[pos++];
+
+            printf("Session Present: %u\n", session_present);
+            printf("CONNACK Code: %u\n", connack_code);
+            break;
+        }
+        case 3: { // PUBLISH
+            // Topic Length
+            uint16_t topic_length = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+
+            // Topic
+            char *topic = malloc(topic_length + 1);
+            memcpy(topic, payload + pos, topic_length);
+            topic[topic_length] = '\0';
+            pos += topic_length;
+
+            printf("Topic: %s\n", topic);
+
+            free(topic);
+            break;
+        }
+
+        case 8: { // SUBSCRIBE
+            // Packet Identifier
+            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+
+            printf("Packet Identifier: %u\n", packet_id);
+
+            while (pos < payload_length) {
+                // Topic Length
+                uint16_t topic_length = ntohs(*((uint16_t *)(payload + pos)));
+                pos += 2;
+
+                // Topic
+                char *topic = malloc((topic_length + 1));
+                memcpy(topic, payload + pos, topic_length);
+                topic[topic_length] = '\0';
+                pos += topic_length;
+
+                printf("Topic: %s\n", topic);
+
+                // QoS
+                uint8_t qos = payload[pos++];
+                printf("QoS: %u\n", qos);
+
+                free(topic);
+            }
+
+            break;
+        }
+        case 10: { // UNSUBSCRIBE
+        
+            // Packet Identifier
+            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+
+            printf("Packet Identifier: %u\n", packet_id);
+
+            while (pos < payload_length) {
+                // Topic Length
+                uint16_t topic_length = ntohs(*((uint16_t *)(payload + pos)));
+                pos += 2;
+
+                // Topic
+                char *topic = malloc(topic_length + 1);
+                memcpy(topic, payload + pos, topic_length);
+                topic[topic_length] = '\0';
+                pos += topic_length;
+
+                printf("Topic: %s\n", topic);
+
+                free(topic);
+        }
+
+            break;
+        }
+
+        case 9: { // SUBACK
+        // Packet Identifier
+            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+
+            printf("Packet Identifier: %u\n", packet_id);
+
+            while (pos < payload_length) {
+                // QoS
+                uint8_t qos = payload[pos++];
+
+                printf("QoS: %u\n", qos);
+                }
+
+            break;
+        }
+        default: {
+            printf("Unsupported MQTT packet type\n");
+            break;
+        }
+    }
+}
+
+void packet_handler(
     u_char *args,
     const struct pcap_pkthdr *header,
     const u_char *packet
@@ -110,7 +274,17 @@ void send_packets_to_db(
 /*
 This func will send raw mqtt packets to database
 */
-    hexdump((void *)packet,header->caplen);
+    //hexdump((void *)packet,header->caplen);
+    struct ip *ip_header = (struct ip *)(packet + 14);
+    struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header->ip_hl * 4);
+
+    if (ip_header->ip_p == IPPROTO_TCP && (ntohs(tcp_header->th_sport) == MQTT_PORT || ntohs(tcp_header->th_dport) == MQTT_PORT)) {
+        int payload_offset = 14 + ip_header->ip_hl * 4 + tcp_header->th_off * 4;
+        int payload_length = ntohs(ip_header->ip_len) - (ip_header->ip_hl * 4 + tcp_header->th_off * 4);
+        if (payload_length > 0) {
+        parse_mqtt(packet + payload_offset, payload_length);
+        }
+    }
 
 }
 
@@ -146,7 +320,7 @@ void start_mqtt_capture(pcap_t *handle){
 
     if ( NULL == set_filter(handle)) goto terminate;
   
-    if (pcap_loop(handle,0,send_packets_to_db,NULL) < 0) {
+    if (pcap_loop(handle,0,packet_handler,NULL) < 0) {
         log_err("FUNCTION : %s\tLINE %d\npcap_loop failed: %s"
         ,__FUNCTION__,__LINE__,pcap_geterr(handle));
         goto terminate;
@@ -195,11 +369,11 @@ struct handler_struct *listener_init(){
         exit(-1);
     }
 
-    data->device_name = "any";
+    //data->device_name = "any";
 
-    // data->device_name = get_device_name();
-    // if(data->device_name == NULL) goto free;
-
+    data->device_name = get_device_name();
+    if(data->device_name == NULL) goto free;
+    
     // // checks whether device is in monitor mode or not
     // if(strcmp((strrchr(data->device_name, '\0')) -3, "mon")){
     //     log_err("FUNCTION : %s\tLINE %d\nDevice is not promiscuous"
@@ -207,8 +381,6 @@ struct handler_struct *listener_init(){
     //     goto free;
     // }
     
-    //  I realized that the mqtt protocol packets is only visible for device named "any" 
-
     data->handle = get_handle(data->device_name);
     if(data->handle == NULL) goto free;
 
