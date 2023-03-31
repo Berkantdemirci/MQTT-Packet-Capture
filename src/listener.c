@@ -246,7 +246,7 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
                 // QoS
                 uint8_t qos = payload[pos++];
-                printf("QoS: %u\n", qos);
+                printf("QoS: %u\n\n", qos);
 
                 free(topic);
             }
