@@ -27,3 +27,4 @@ Resources
 - https://www.devdungeon.com/content/using-libpcap-c
 - https://vichargrave.github.io/programming/develop-a-packet-sniffer-with-libpcap/
 - https://openlabpro.com/guide/mqtt-packet-format/
+- https://www.emqx.com/en/blog/how-to-use-mqtt-in-python

@@ -109,8 +109,6 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
     // MQTT Fixed header
     unsigned char mqtt_message_type = (payload[0] & 0xF0) >> 4;
 
-    printf("MQTT Message Type: %u\n", mqtt_message_type);
-
     int pos = 1; // Position in payload (skipping fixed header byte)
     int multiplier = 1;
     int remaining_length = 0;
@@ -126,6 +124,9 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
     switch (mqtt_message_type) {
         case 1: { // CONNECT
             // Protocol Name
+
+            printf("MQTT Message Type: CONNECT\n");
+
             uint16_t protocol_name_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
             char *protocol_name = malloc(protocol_name_length + 1);
@@ -156,21 +157,27 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             client_id[client_id_length] = '\0';
             pos += client_id_length;
 
-            printf("Client ID: %s\n", client_id);
+            printf("Client ID: %s\n\n", client_id);
 
             free(protocol_name);
             free(client_id);
             break;
         }
         case 2: { // CONNACK
+
+            printf("MQTT Message Type: CONNACK\n");
+        
             uint8_t session_present = payload[pos++] & 0x01;
             uint8_t connack_code = payload[pos++];
 
             printf("Session Present: %u\n", session_present);
-            printf("CONNACK Code: %u\n", connack_code);
+            printf("CONNACK Code: %u\n\n", connack_code);
             break;
         }
         case 3: { // PUBLISH
+
+            printf("MQTT Message Type: PUBLISH\n");
+
             // Topic Length
             uint16_t topic_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
@@ -181,13 +188,16 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             topic[topic_length] = '\0';
             pos += topic_length;
 
-            printf("Topic: %s\n", topic);
+            printf("Topic: %s\n\n", topic);
 
             free(topic);
             break;
         }
 
         case 8: { // SUBSCRIBE
+
+            printf("MQTT Message Type: SUBSCRIBE\n");
+        
             // Packet Identifier
             uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
@@ -216,7 +226,30 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
             break;
         }
+        case 9: { // SUBACK
+
+            printf("MQTT Message Type: SUBACK\n");
+
+            // Packet Identifier
+            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+
+            printf("Packet Identifier: %u\n", packet_id);
+
+            while (pos < payload_length) {
+                // QoS
+                uint8_t qos = payload[pos++];
+
+                printf("QoS: %u\n", qos);
+                }
+
+            break;
+        }
+
         case 10: { // UNSUBSCRIBE
+
+            printf("MQTT Message Type: UNSUBSCRIBE\n");
+
         
             // Packet Identifier
             uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
@@ -243,22 +276,6 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             break;
         }
 
-        case 9: { // SUBACK
-        // Packet Identifier
-            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
-            pos += 2;
-
-            printf("Packet Identifier: %u\n", packet_id);
-
-            while (pos < payload_length) {
-                // QoS
-                uint8_t qos = payload[pos++];
-
-                printf("QoS: %u\n", qos);
-                }
-
-            break;
-        }
         default: {
             printf("Unsupported MQTT packet type\n");
             break;
@@ -282,7 +299,7 @@ This func will send raw mqtt packets to database
         int payload_offset = 14 + ip_header->ip_hl * 4 + tcp_header->th_off * 4;
         int payload_length = ntohs(ip_header->ip_len) - (ip_header->ip_hl * 4 + tcp_header->th_off * 4);
         if (payload_length > 0) {
-        parse_mqtt(packet + payload_offset, payload_length);
+            parse_mqtt(packet + payload_offset, payload_length);
         }
     }
 
