@@ -130,6 +130,13 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             uint16_t protocol_name_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
             char *protocol_name = malloc(protocol_name_length + 1);
+
+            if (protocol_name == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                break;
+            }
+
             memcpy(protocol_name, payload + pos, protocol_name_length);
             protocol_name[protocol_name_length] = '\0';
             pos += protocol_name_length;
@@ -153,14 +160,22 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             uint16_t client_id_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
             char *client_id = malloc(client_id_length + 1);
+
+            if (client_id == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                goto free;
+            }
             memcpy(client_id, payload + pos, client_id_length);
             client_id[client_id_length] = '\0';
             pos += client_id_length;
 
             printf("Client ID: %s\n\n", client_id);
 
-            free(protocol_name);
             free(client_id);
+            free:
+                free(protocol_name);
+
             break;
         }
         case 2: { // CONNACK
@@ -184,6 +199,12 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
             // Topic
             char *topic = malloc(topic_length + 1);
+
+            if (topic == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                break;
+            }
             memcpy(topic, payload + pos, topic_length);
             topic[topic_length] = '\0';
             pos += topic_length;
@@ -211,6 +232,12 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
                 // Topic
                 char *topic = malloc((topic_length + 1));
+
+                if (topic == NULL) {
+                    log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                    ,__FUNCTION__,__LINE__);
+                    goto exit;
+                }
                 memcpy(topic, payload + pos, topic_length);
                 topic[topic_length] = '\0';
                 pos += topic_length;
@@ -223,8 +250,8 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
                 free(topic);
             }
-
-            break;
+            exit:
+                break;
         }
         case 9: { // SUBACK
 
@@ -272,12 +299,11 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
                 free(topic);
         }
-
             break;
         }
 
         default: {
-            printf("Unsupported MQTT packet type\n");
+            log_err("Unsupported MQTT packet type\n");
             break;
         }
     }
@@ -383,10 +409,8 @@ struct handler_struct *listener_init(){
     if (data == NULL) {
         log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
         ,__FUNCTION__,__LINE__);
-        exit(-1);
+        goto exit;
     }
-
-    //data->device_name = "any";
 
     data->device_name = get_device_name();
     if(data->device_name == NULL) goto free;
@@ -409,6 +433,7 @@ struct handler_struct *listener_init(){
 
     free:
         free(data);
+    exit:
         exit(-1);
     
 }
