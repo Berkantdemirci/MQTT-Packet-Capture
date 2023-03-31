@@ -28,3 +28,4 @@ Resources
 - https://vichargrave.github.io/programming/develop-a-packet-sniffer-with-libpcap/
 - https://openlabpro.com/guide/mqtt-packet-format/
 - https://www.emqx.com/en/blog/how-to-use-mqtt-in-python
+- http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html

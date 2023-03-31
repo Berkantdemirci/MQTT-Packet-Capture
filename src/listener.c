@@ -215,6 +215,18 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
             break;
         }
 
+        case 4: // PUBACK
+        case 5: // PUBREC
+        case 6: // PUBREL
+        case 7: // PUBCOMP
+        case 11:{ // UNSUBACK
+
+            uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
+            pos += 2;
+            printf("Packet ID: %u\n", packet_id);
+            break;
+        }
+        
         case 8: { // SUBSCRIBE
 
             printf("MQTT Message Type: SUBSCRIBE\n");
@@ -276,7 +288,6 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
         case 10: { // UNSUBSCRIBE
 
             printf("MQTT Message Type: UNSUBSCRIBE\n");
-
         
             // Packet Identifier
             uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
@@ -299,6 +310,19 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
 
                 free(topic);
         }
+            break;
+        }
+
+        case 12: { // PINGREQ
+            printf("PINGREQ\n");
+            break;
+        }
+        case 13: { // PINGRESP
+            printf("PINGRESP\n");
+            break;
+        }
+        case 14: { // DISCONNECT
+            printf("DISCONNECT\n");
             break;
         }
 
