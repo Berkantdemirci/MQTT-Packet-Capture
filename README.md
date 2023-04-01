@@ -6,6 +6,7 @@ You need to install libpcap library to be able to use the project.
 
 ```sh
 sudo apt-get install git libpcap-dev
+pip3 install paho-mqtt
 ```
 
 ## Compile & Run
@@ -15,6 +16,7 @@ Just run the "compile.sh" bash script to compile. The binary named "mqtt_listen"
 !!!ATTENTION!!!
 
 This project only runs under root privileges. 
+
 AUTHORS 
 
 - Hüseyin Yüce

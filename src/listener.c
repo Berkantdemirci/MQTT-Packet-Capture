@@ -95,12 +95,12 @@ pcap_t *get_handle(unsigned char *dev){
 
     get_handle_error:
         log_err("FUNCTION : %s\tLINE %d\nCouldn't open device : %s"
-        ,__FUNCTION__,__LINE__,errbuf);
+        ,__FUNCTION__,__LINE__,pcap_geterr(handle));
 	    return NULL;
 
     root_error:
         log_err("FUNCTION : %s\tLINE %d\nYou have to be root%s"
-        ,__FUNCTION__,__LINE__,errbuf);
+        ,__FUNCTION__,__LINE__,pcap_geterr(handle));
 	    return NULL;
 
 }
@@ -314,15 +314,15 @@ void parse_mqtt(const unsigned char *payload, int payload_length) {
         }
 
         case 12: { // PINGREQ
-            printf("PINGREQ\n");
+            printf("PINGREQ\n\n");
             break;
         }
         case 13: { // PINGRESP
-            printf("PINGRESP\n");
+            printf("PINGRESP\n\n");
             break;
         }
         case 14: { // DISCONNECT
-            printf("DISCONNECT\n");
+            printf("DISCONNECT\n\n");
             break;
         }
 
@@ -374,7 +374,6 @@ void *set_filter(pcap_t *handle){
     }
 
     log_info("### FILTER HAS BEEN SETTED ###");
-
 
 /*
   just capture mqtt packets 
