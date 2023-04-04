@@ -21,34 +21,35 @@
 unsigned char errbuf[PCAP_ERRBUF_SIZE];
 
 static void hexdump(void *_data, size_t byte_count) {
-  log_info("\nhexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
-  for (unsigned long byte_offset = 0; byte_offset < byte_count; byte_offset += 16) {
-    unsigned char *bytes = ((unsigned char*)_data) + byte_offset;
-    unsigned long line_bytes = (byte_count - byte_offset > 16) ?
-	    16 : (byte_count - byte_offset);
-    char line[1000];
-    char *linep = line;
-    linep += sprintf(linep, "%08lx  ", byte_offset);
-    for (int i=0; i<16; i++) {
-      if (i >= line_bytes) {
-        linep += sprintf(linep, "   ");
-      } else {
-        linep += sprintf(linep, "%02hhx ", bytes[i]);
-      }
+    log_info("\nhexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
+    for (unsigned long byte_offset = 0; byte_offset < byte_count; byte_offset += 16) {
+        unsigned char *bytes = ((unsigned char*)_data) + byte_offset;
+        unsigned long line_bytes = (byte_count - byte_offset > 16) ? 16 : (byte_count - byte_offset);
+        char line[1000];
+        char *linep = line;
+        linep += sprintf(linep, "%08lx  ", byte_offset);
+        for (int i=0; i<16; i++) {
+            if (i >= line_bytes) {
+                linep += sprintf(linep, "   ");
+            } 
+            else {
+                linep += sprintf(linep, "%02hhx ", bytes[i]);
+            }
+        }
+    
+        linep += sprintf(linep, " |");
+        for (int i=0; i<line_bytes; i++) {
+            if (isalnum(bytes[i]) || ispunct(bytes[i]) || bytes[i] == ' ') {
+                *(linep++) = bytes[i];
+            } 
+            else {
+                *(linep++) = '.';
+            }
+        }
+        linep += sprintf(linep, "|");
+        puts(line);
     }
-    linep += sprintf(linep, " |");
-    for (int i=0; i<line_bytes; i++) {
-      if (isalnum(bytes[i]) || ispunct(bytes[i]) || bytes[i] == ' ') {
-        *(linep++) = bytes[i];
-      } else {
-        *(linep++) = '.';
-      }
-    }
-    linep += sprintf(linep, "|");
-    puts(line);
-  }
-  log_info("###############\n");
-
+    log_info("###############\n");
 }
 
 unsigned char *get_device_name(){
@@ -338,10 +339,6 @@ void packet_handler(
     const struct pcap_pkthdr *header,
     const u_char *packet
 ){
-/*
-This func will send raw mqtt packets to database
-*/
-    //hexdump((void *)packet,header->caplen);
     struct ip *ip_header = (struct ip *)(packet + 14);
     struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header->ip_hl * 4);
 
@@ -353,6 +350,17 @@ This func will send raw mqtt packets to database
         }
     }
 
+/*
+    This func parses Ethernet header of captured packets.
+    If a MQTT packet does not have Ethernet header, This func will ignore it.
+    The packets that generated through mosquitto_pub by using localhost as host to connect
+    (e.g mosquitto_pub -h localhost -t "topic" -m "led on")
+    will not have proper ethernet header for this parsing algorithm. So you can't capture that type of packets by using this project.
+
+    Also, the packets will be invisible for pcap_lookupdev's return value. (e.g wlp0s20f3 (wifi interface))
+    You should switch the capturing device to "any" if you are strictly insistent about capturing that type of packet.
+    But changing capturing device has consecuenses. You can't see the packet which has ethernet header.
+*/
 }
 
 void *set_filter(pcap_t *handle){
