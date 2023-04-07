@@ -20,7 +20,23 @@ struct handler_struct{
 
 }; 
 
-struct mqtt_struct {
+struct common_data{
+
+};
+/*
+    ip.src
+    ip.dst
+    tcp.srcport
+    tcp.dstport
+    tcp.flag
+    frame.len
+    tcp.checksum
+*/
+
+
+struct mqtt_connect {
+
+
     
 };
 
