@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
+
 #include "log.h"
 
 ssize_t log_info(const char *format, ...)

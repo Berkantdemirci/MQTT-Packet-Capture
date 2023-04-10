@@ -17,13 +17,21 @@
 #include "listener.h"
 #include "log.h"
 #include "mqtt_structure.h"
+#include "csv.h"
 
-unsigned char errbuf[PCAP_ERRBUF_SIZE];
+uint8_t errbuf[PCAP_ERRBUF_SIZE];
+
+struct mqtt_fix_header *fix_header = NULL;
+struct mqtt_connect *conn = NULL;
+struct mqtt_connect_ack *conn_ack = NULL;
+struct mqtt_subscribe_or_ack *ack = NULL;
+struct mqtt_subscribe_or_ack *sub_ack = NULL;
+
 
 static void hexdump(void *_data, size_t byte_count) {
     log_info("\nhexdump(%p, 0x%lx)\n", _data, (unsigned long)byte_count);
     for (unsigned long byte_offset = 0; byte_offset < byte_count; byte_offset += 16) {
-        unsigned char *bytes = ((unsigned char*)_data) + byte_offset;
+        uint8_t *bytes = ((uint8_t*)_data) + byte_offset;
         unsigned long line_bytes = (byte_count - byte_offset > 16) ? 16 : (byte_count - byte_offset);
         char line[1000];
         char *linep = line;
@@ -52,9 +60,9 @@ static void hexdump(void *_data, size_t byte_count) {
     log_info("###############\n");
 }
 
-unsigned char *get_device_name(){
+uint8_t *get_device_name(){
 
-    unsigned char *dev = NULL;
+    uint8_t *dev = NULL;
 
     dev = pcap_lookupdev(errbuf);
     // returns the network name where packets will be captured
@@ -73,7 +81,7 @@ unsigned char *get_device_name(){
     */
 }
 
-pcap_t *get_handle(unsigned char *dev){
+pcap_t *get_handle(uint8_t *dev){
 
     if(getuid() != 0) goto root_error;
     // packet capturing works only under root privileges
@@ -106,14 +114,14 @@ pcap_t *get_handle(unsigned char *dev){
 
 }
 
-void parse_mqtt(const unsigned char *payload, int payload_length) {
+void parse_mqtt(const uint8_t *payload, int payload_length) {
     // MQTT Fixed header
-    unsigned char mqtt_message_type = (payload[0] & 0xF0) >> 4;
+    uint8_t mqtt_message_type = (payload[0] & 0xF0) >> 4;
 
     int pos = 1; // Position in payload (skipping fixed header byte)
     int multiplier = 1;
     int remaining_length = 0;
-    unsigned char encoded_byte;
+    uint8_t encoded_byte;
 
     do {
         encoded_byte = payload[pos++];
@@ -339,14 +347,31 @@ void packet_handler(
     const struct pcap_pkthdr *header,
     const u_char *packet
 ){
-    struct ip *ip_header = (struct ip *)(packet + 14);
+    struct ip *ip_header = (struct ip *)(packet + 14); // +14 means skip ethernet header
     struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header->ip_hl * 4);
 
+    fix_header = (struct mqtt_fix_header *)malloc(sizeof(struct mqtt_fix_header));
+
+    if(fix_header == NULL){
+            log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+            ,__FUNCTION__,__LINE__);
+            exit(-1);
+    }
+
     if (ip_header->ip_p == IPPROTO_TCP && (ntohs(tcp_header->th_sport) == MQTT_PORT || ntohs(tcp_header->th_dport) == MQTT_PORT)) {
-        log_info("%x",ntohl((uint32_t)ip_header->ip_src));
         int payload_offset = 14 + ip_header->ip_hl * 4 + tcp_header->th_off * 4;
         int payload_length = ntohs(ip_header->ip_len) - (ip_header->ip_hl * 4 + tcp_header->th_off * 4);
         if (payload_length > 0) {
+
+            memcpy(fix_header->ip_src,inet_ntoa(ip_header->ip_src),16);
+            memcpy(fix_header->ip_dst,inet_ntoa(ip_header->ip_dst),16);
+
+            fix_header->s_port = ntohs(tcp_header->th_sport);
+            fix_header->d_port = ntohs(tcp_header->th_dport);
+            fix_header->tcp_flag = tcp_header->th_flags;
+            fix_header->caplen = header->caplen;
+            fix_header->checksum = ntohs(tcp_header->th_sum);
+            
             parse_mqtt(packet + payload_offset, payload_length);
         }
     }
@@ -367,7 +392,7 @@ void packet_handler(
 void *set_filter(pcap_t *handle){
 
     struct bpf_program filter = {0};
-    unsigned char filter_exp[] = "tcp port 1883";
+    uint8_t filter_exp[] = "tcp port 1883";
     bpf_u_int32 tmp;
 
     if (pcap_compile(handle, &filter, filter_exp, 0, tmp) == -1) {
