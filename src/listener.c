@@ -24,7 +24,7 @@ uint8_t errbuf[PCAP_ERRBUF_SIZE];
 struct mqtt_fix_header *fix_header = NULL;
 struct mqtt_connect *conn = NULL;
 struct mqtt_connect_ack *conn_ack = NULL;
-struct mqtt_subscribe_or_ack *ack = NULL;
+struct mqtt_subscribe_or_ack *sub = NULL;
 struct mqtt_subscribe_or_ack *sub_ack = NULL;
 
 
@@ -136,6 +136,14 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
 
             printf("MQTT Message Type: CONNECT\n");
 
+            conn = (struct mqtt_connect *)malloc(sizeof(struct mqtt_connect));
+            
+            if (conn == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                break;
+            }
+
             uint16_t protocol_name_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
             char *protocol_name = malloc(protocol_name_length + 1);
@@ -154,20 +162,25 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
 
             // Protocol Level
             uint8_t protocol_level = payload[pos++];
+            conn->mqtt_version = protocol_level;
             printf("Protocol Level: %u\n", protocol_level);
 
             // Connect Flags
             uint8_t connect_flags = payload[pos++];
+            conn->connect_flag = connect_flags;
             printf("Connect Flags: %02X\n", connect_flags);
 
             // Keep Alive
             uint16_t keep_alive = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
+            conn->keep_alive = keep_alive;
             printf("Keep Alive: %u\n", keep_alive);
 
             // Client ID
             uint16_t client_id_length = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
+            conn->client_id_length = client_id_length;
+
             char *client_id = malloc(client_id_length + 1);
 
             if (client_id == NULL) {
@@ -178,8 +191,12 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
             memcpy(client_id, payload + pos, client_id_length);
             client_id[client_id_length] = '\0';
             pos += client_id_length;
+            
+            memcpy(conn->client_id, client_id, client_id_length + 1);
 
             printf("Client ID: %s\n\n", client_id);
+
+            save_mqtt_data(fix_header,conn,NULL,NULL,NULL);
 
             free(client_id);
             free:
@@ -190,12 +207,26 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
         case 2: { // CONNACK
 
             printf("MQTT Message Type: CONNACK\n");
-        
+
+            conn_ack = (struct mqtt_connect_ack *)malloc(sizeof(struct mqtt_connect_ack));
+
+            if (conn_ack == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                break;
+            }
+
             uint8_t session_present = payload[pos++] & 0x01;
+            conn_ack->session_present = session_present;
+
             uint8_t connack_code = payload[pos++];
+            conn_ack->connack_code = connack_code;
 
             printf("Session Present: %u\n", session_present);
             printf("CONNACK Code: %u\n\n", connack_code);
+
+            save_mqtt_data(fix_header,NULL, conn_ack,NULL,NULL);
+
             break;
         }
         case 3: { // PUBLISH
@@ -239,10 +270,19 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
         case 8: { // SUBSCRIBE
 
             printf("MQTT Message Type: SUBSCRIBE\n");
+
+            sub = (struct mqtt_subscribe_or_ack *)malloc(sizeof(struct mqtt_subscribe_or_ack));
         
+            if (sub == NULL) {
+                log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                ,__FUNCTION__,__LINE__);
+                break;
+            }
+
             // Packet Identifier
             uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
+            sub->packet_id = packet_id;
 
             printf("Packet Identifier: %u\n", packet_id);
 
@@ -269,8 +309,13 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
                 uint8_t qos = payload[pos++];
                 printf("QoS: %u\n\n", qos);
 
+                sub->qos = qos;
+
                 free(topic);
             }
+
+            save_mqtt_data(fix_header,NULL, NULL,sub,NULL);
+
             exit:
                 break;
         }
@@ -278,18 +323,30 @@ void parse_mqtt(const uint8_t *payload, int payload_length) {
 
             printf("MQTT Message Type: SUBACK\n");
 
+            sub_ack = (struct mqtt_subscribe_or_ack *)malloc(sizeof(struct mqtt_subscribe_or_ack));
+
+            if (sub_ack == NULL) {
+                    log_err("FUNCTION : %s\tLINE %d\nMalloc returned null"
+                    ,__FUNCTION__,__LINE__);
+                    break;
+            }
             // Packet Identifier
             uint16_t packet_id = ntohs(*((uint16_t *)(payload + pos)));
             pos += 2;
+            sub->packet_id = packet_id;
 
             printf("Packet Identifier: %u\n", packet_id);
 
             while (pos < payload_length) {
                 // QoS
                 uint8_t qos = payload[pos++];
-
+                
                 printf("QoS: %u\n", qos);
-                }
+            }
+
+            sub->packet_id = packet_id;
+
+            save_mqtt_data(fix_header,NULL, NULL,NULL,sub_ack);
 
             break;
         }

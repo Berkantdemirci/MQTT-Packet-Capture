@@ -7,7 +7,8 @@
 #include "mqtt_structure.h"
 
 #define MQTT_PORT 1883
-#define IP_BUF 256
+#define IP_BUF_SIZE 256
+#define ID_BUF_SIZE 128
 
 struct handler_struct{
 
@@ -20,7 +21,7 @@ struct handler_struct{
 
 struct mqtt_fix_header{
 
-    uint8_t ip_src[IP_BUF], ip_dst[IP_BUF];
+    uint8_t ip_src[IP_BUF_SIZE], ip_dst[IP_BUF_SIZE];
     uint16_t s_port ,d_port;	/* source/destination port */
     uint8_t tcp_flag;
     uint32_t caplen;
@@ -44,7 +45,7 @@ struct mqtt_connect {
     uint8_t connect_flag;
     uint16_t keep_alive;
     uint16_t client_id_length;
-    uint8_t *client_id;
+    uint8_t client_id[ID_BUF_SIZE];
     
 };
 

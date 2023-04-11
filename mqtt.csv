@@ -1,0 +1,7 @@
+ip.src, ip.dst, src.port, dst.port, tcp.flag, tcp.checksum, cap_len, mqtt.conn.vers, mqtt.conn.flag, mqtt.conn.keep_alive, mqtt.conn.client_len, mqtt.conn.client_id, mqtt.connack.session_present, mqtt.connack.connack_code, mqtt.sub.packet_id, mqtt.sub.qos, mqtt.suback.packet_id, mqtt.suback.qos  
+192.168.1.135, 54.87.92.106, 47699, 1883, 0x18, 0x5541, 108, 4, 0xc2, 60, 14, python-mqtt-76, , , , , , 
+192.168.1.135, 54.87.92.106, 47699, 1883, 0x18, 0x5529, 84, , , , , , , , 1, 0, , 
+54.87.92.106, 192.168.1.135, 1883, 47699, 0x18, 0xde64, 70, , , , , , 0, 0, , , , 
+54.87.92.106, 192.168.1.135, 1883, 47699, 0x18, 0x6d32, 71, , , , , , , , , , 0, 0
+192.168.1.135, 54.87.92.106, 38875, 1883, 0x18, 0x5542, 109, 4, 0xc2, 60, 15, python-mqtt-824, , , , , , 
+54.87.92.106, 192.168.1.135, 1883, 38875, 0x18, 0x7a70, 70, , , , , , 0, 0, , , , 
